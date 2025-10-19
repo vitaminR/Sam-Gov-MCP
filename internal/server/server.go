@@ -2,6 +2,7 @@
 package server
 
 import (
+	"context"
 	"bytes"
 	"encoding/json"
 	"io"
@@ -152,8 +153,32 @@ func (s *Server) handleCall(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "unknown tool", http.StatusNotFound)
 }
 
+// fetchAndCacheSamData handles the logic of fetching data from SAM.gov or using mock data,
+// and then caching the result. It's used by both handleSamSearch and handleScheduled.
+func (s *Server) fetchAndCacheSamData(ctx context.Context, cacheKey string, params sam.SearchParams) (map[string]interface{}, error) {
+	// If a valid SAM API key is configured, fetch live data; otherwise use mock data.
+	if s.cfg.SamAPIKey != "" {
+		client := sam.New("https://api.sam.gov/opportunities/v2/search", s.cfg.SamAPIKey, s.httpClient)
+		res, err := client.Search(ctx, params)
+		if err != nil {
+			return nil, err
+		}
+		resp := map[string]interface{}{"results": res}
+		s.cache.Set(cacheKey, resp, 12*time.Hour)
+		return resp, nil
+	}
+
+	// Fallback mock when SAM_API_KEY is not configured
+	resp := map[string]interface{}{
+		"results": []map[string]string{
+			{"title": "Example Opportunity", "agency": "GSA", "modified": time.Now().UTC().Format(time.RFC3339), "url": "https://sam.gov/opp/example"},
+		},
+	}
+	s.cache.Set(cacheKey, resp, 12*time.Hour)
+	return resp, nil
+}
+
 func (s *Server) handleSamSearch(w http.ResponseWriter, r *http.Request) {
-	// If API key is configured, call SAM.gov; else return mock data
 	type args struct {
 		Q          string   `json:"q"`
 		NAICS      []string `json:"naics"`
@@ -162,53 +187,54 @@ func (s *Server) handleSamSearch(w http.ResponseWriter, r *http.Request) {
 		NoticeType string   `json:"noticeType"`
 		Org        string   `json:"organization"`
 	}
-	var a args
-	if err := json.NewDecoder(r.Body).Decode(&a); err != nil {
+	var searchArgs args
+	if err := json.NewDecoder(r.Body).Decode(&searchArgs); err != nil {
 		http.Error(w, "invalid json", http.StatusBadRequest)
 		return
 	}
 
-	cacheKey := "sam_search:" + a.Q + ":" + time.Now().UTC().Format("2006-01-02")
+	cacheKey := "sam_search:" + searchArgs.Q + ":" + time.Now().UTC().Format("2006-01-02")
 	if v, ok := s.cache.Get(cacheKey); ok {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(v)
 		return
 	}
-	if s.cfg.SamAPIKey != "" {
-		client := sam.New("https://api.sam.gov/opportunities/v2/search", s.cfg.SamAPIKey, s.httpClient)
-		res, err := client.Search(r.Context(), sam.SearchParams{
-			Q: a.Q, NAICS: a.NAICS, Days: a.Days, Limit: a.Limit, NoticeType: a.NoticeType, Org: a.Org,
-		})
-		if err != nil {
-			http.Error(w, "sam api error: "+err.Error(), http.StatusBadGateway)
-			return
-		}
-		resp := map[string]interface{}{"results": res}
-		s.cache.Set(cacheKey, resp, 12*time.Hour)
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
+
+	params := sam.SearchParams{Q: searchArgs.Q, NAICS: searchArgs.NAICS, Days: searchArgs.Days, Limit: searchArgs.Limit, NoticeType: searchArgs.NoticeType, Org: searchArgs.Org}
+	resp, err := s.fetchAndCacheSamData(r.Context(), cacheKey, params)
+	if err != nil {
+		http.Error(w, "sam api error: "+err.Error(), http.StatusBadGateway)
 		return
 	}
-	// Fallback mock
-	resp := map[string]interface{}{
-		"results": []map[string]string{
-			{"title": "Example Opportunity", "agency": "GSA", "modified": time.Now().UTC().Format(time.RFC3339), "url": "https://sam.gov/opp/example"},
-		},
-	}
-	s.cache.Set(cacheKey, resp, 12*time.Hour)
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // handleScheduled is intended to be called by a scheduler (e.g., GitHub Actions) to warm caches or trigger background work
-func (s *Server) handleScheduled(w http.ResponseWriter, _ *http.Request) {
-	// For now, just refresh the mock cache entry
-	resp := map[string]interface{}{
-		"results": []map[string]string{
-			{"title": "Example Opportunity", "agency": "GSA", "modified": time.Now().UTC().Format(time.RFC3339), "url": "https://sam.gov/opp/example"},
-		},
+func (s *Server) handleScheduled(w http.ResponseWriter, r *http.Request) {
+	// Warm the cache for the default prefetch query using the same cache key scheme as handleSamSearch
+	todayKey := time.Now().UTC().Format("2006-01-02")
+	cacheKey := "sam_search:" + s.cfg.PrefetchQ + ":" + todayKey
+
+	params := sam.SearchParams{
+		Q:          s.cfg.PrefetchQ,
+		NAICS:      s.cfg.PrefetchNAICS,
+		Days:       s.cfg.PrefetchDays,
+		Limit:      s.cfg.PrefetchLimit,
+		NoticeType: s.cfg.PrefetchType,
+		Org:        s.cfg.PrefetchOrg,
 	}
-	s.cache.Set("sam_search_mock", resp, 12*time.Hour)
+	_, err := s.fetchAndCacheSamData(r.Context(), cacheKey, params)
+	if err != nil {
+		http.Error(w, "sam api error during prefetch: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+
+	statusMsg := "prefetch completed"
+	if s.cfg.SamAPIKey == "" {
+		statusMsg = "prefetch completed (mock)"
+	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "scheduled task completed"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": statusMsg})
 }

@@ -113,6 +113,14 @@ CI
 - On push/PR, the CI workflow builds and vets the code
 - Trivy, revive, and Semgrep are used via Codacy MCP tooling
 
+Dev quickstart (no TLS, for tunneling)
+
+- For fast Agent Builder testing via an HTTPS tunnel:
+  - Linux/WSL: ./run_dev.sh
+  - Windows: run_dev.bat
+  - This sets ALLOW_INSECURE_HTTP=1 and starts on <http://localhost:3000>
+  - Then expose with your HTTPS tunnel/proxy to https://<host>/mcp
+
 Testing
 
 - go test ./...
@@ -128,15 +136,15 @@ Prerequisites
 Steps
 
 1. Open the Agent Builder UI (platform.openai.com/agents) and create/edit your agent
-2. Go to Tools > Add Tool > Model Context Protocol (MCP)
-3. Enter:
+1. Go to Tools > Add Tool > Model Context Protocol (MCP)
+1. Enter:
 
 - Base URL: https://<host>/mcp
 - Auth: HTTP header
 - Header name: Authorization
 - Header value: Bearer ${MCP_TOKEN}
 
-4. Save the tool and test:
+1. Save the tool and test:
 
 - Ask the agent: "Search SAM.gov for software opportunities from the last 7 days"
 - The agent will call sam_search with your arguments

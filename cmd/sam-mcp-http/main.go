@@ -32,10 +32,20 @@ func main() {
     }
     srv := server.New(cfg)
     log.Printf("Starting MCP HTTP server on :%s\n", cfg.Port)
+    // Dev convenience: allow HTTP when ALLOW_INSECURE_HTTP=true (or 1). Default requires TLS.
+    allowInsecure := strings.EqualFold(os.Getenv("ALLOW_INSECURE_HTTP"), "true") || os.Getenv("ALLOW_INSECURE_HTTP") == "1"
+    if allowInsecure {
+        log.Println("WARN: ALLOW_INSECURE_HTTP enabled. Serving HTTP without TLS (dev only).")
+        if err := http.ListenAndServe(":"+cfg.Port, srv.Router()); err != nil {
+            log.Fatalf("server error: %v", err)
+        }
+        return
+    }
+
     certFile := os.Getenv("TLS_CERT_FILE")
     keyFile := os.Getenv("TLS_KEY_FILE")
     if certFile == "" || keyFile == "" {
-        log.Fatal("TLS_CERT_FILE and TLS_KEY_FILE are required. Provide TLS cert/key or run behind a TLS-terminating proxy.")
+        log.Fatal("TLS_CERT_FILE and TLS_KEY_FILE are required (or set ALLOW_INSECURE_HTTP=true for local dev). Provide TLS cert/key or run behind a TLS-terminating proxy.")
     }
     log.Println("TLS enabled: using provided certificate and key")
     if err := http.ListenAndServeTLS(":"+cfg.Port, certFile, keyFile, srv.Router()); err != nil {
