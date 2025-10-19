@@ -9,6 +9,7 @@ import (
 
 const samAPIBaseURL = "https://api.sam.gov/prod/opportunities/v2/search"
 
+// Opportunity represents a single SAM.gov opportunity entry returned by the API.
 type Opportunity struct {
 	Title    string `json:"title"`
 	Agency   string `json:"agency"`
@@ -16,10 +17,12 @@ type Opportunity struct {
 	URL      string `json:"url"`
 }
 
+// SamSearchResults is the top-level shape from SAM.gov for the opportunities search.
 type SamSearchResults struct {
 	Results []Opportunity `json:"opportunitiesData"`
 }
 
+// SearchOpportunities queries the public SAM.gov opportunities API with the provided params.
 func SearchOpportunities(apiKey string, params map[string]interface{}) (*SamSearchResults, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("SAM_API_KEY not set")

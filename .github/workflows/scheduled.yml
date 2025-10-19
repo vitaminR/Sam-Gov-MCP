@@ -11,7 +11,11 @@ jobs:
         steps:
             - name: Print timestamp
               run: echo "Running scheduled maintenance at $(date -u)"
-            # Placeholder: If you deploy this service, you can curl an endpoint here to warm caches or fetch data.
-            # - name: Ping scheduler endpoint
-            #   run: |
-            #     curl -fsS --retry 3 "${MCP_SCHEDULE_URL}"
+            - name: Ping scheduler endpoint (if configured)
+              if: ${{ secrets.MCP_SCHEDULE_URL != '' && secrets.SCHEDULE_TOKEN != '' }}
+              env:
+                  MCP_SCHEDULE_URL: ${{ secrets.MCP_SCHEDULE_URL }}
+                  SCHEDULE_TOKEN: ${{ secrets.SCHEDULE_TOKEN }}
+              run: |
+                  echo "Pinging $MCP_SCHEDULE_URL"
+                  curl -fsS --retry 3 -H "Authorization: Bearer ${SCHEDULE_TOKEN}" "$MCP_SCHEDULE_URL"

@@ -48,3 +48,33 @@ func TestToolsAndCall(t *testing.T) {
         t.Fatalf("expected 200, got %d", rr.Code)
     }
 }
+
+func TestScheduled(t *testing.T) {
+    s := New(Config{Token: "x"})
+    req := httptest.NewRequest(http.MethodPost, "/mcp/scheduled", nil)
+    req.Header.Set("Authorization", "Bearer x")
+    rr := httptest.NewRecorder()
+    s.Router().ServeHTTP(rr, req)
+    if rr.Code != http.StatusOK {
+        t.Fatalf("expected 200, got %d", rr.Code)
+    }
+}
+
+func TestSamSearchMock(t *testing.T) {
+    s := New(Config{})
+    body, _ := json.Marshal(map[string]interface{}{"days": 7})
+    req := httptest.NewRequest(http.MethodPost, "/mcp/call", bytes.NewReader(body))
+    rr := httptest.NewRecorder()
+    s.handleSamSearch(rr, req)
+    if rr.Code != http.StatusOK {
+        t.Fatalf("expected 200, got %d", rr.Code)
+    }
+
+    var resp map[string]interface{}
+    if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+        t.Fatalf("invalid json: %v", err)
+    }
+    if _, ok := resp["results"]; !ok {
+        t.Fatal("expected results key in response")
+    }
+}

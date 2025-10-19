@@ -10,19 +10,23 @@ type cacheItem struct {
     expiration time.Time
 }
 
+// Cache is a minimal in-memory TTL cache safe for concurrent access.
 type Cache struct {
     mu    sync.RWMutex
     items map[string]cacheItem
 }
 
+// NewCache constructs an empty Cache instance.
 func NewCache() *Cache { return &Cache{items: make(map[string]cacheItem)} }
 
+// Set stores a value with a time-to-live for the given key.
 func (c *Cache) Set(key string, value interface{}, ttl time.Duration) {
     c.mu.Lock()
     defer c.mu.Unlock()
     c.items[key] = cacheItem{value: value, expiration: time.Now().Add(ttl)}
 }
 
+// Get retrieves a non-expired value for the key, returning false if missing or expired.
 func (c *Cache) Get(key string) (interface{}, bool) {
     c.mu.RLock()
     it, ok := c.items[key]
