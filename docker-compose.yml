@@ -1,0 +1,24 @@
+version: "3.9"
+services:
+  sam-mcp:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.local
+    environment:
+      - MCP_TOKEN=${MCP_TOKEN}
+      - SCHEDULE_TOKEN=${SCHEDULE_TOKEN}
+      - SAM_API_KEY=${SAM_API_KEY}
+      - PREFETCH_Q=${PREFETCH_Q}
+      - PREFETCH_NAICS=${PREFETCH_NAICS}
+      - PREFETCH_DAYS=${PREFETCH_DAYS}
+      - PREFETCH_LIMIT=${PREFETCH_LIMIT}
+      - PREFETCH_NOTICE_TYPE=${PREFETCH_NOTICE_TYPE}
+      - PREFETCH_ORG=${PREFETCH_ORG}
+      - PORT=${PORT:-3000}
+      - TLS_CERT_FILE=${TLS_CERT_FILE:-/certs/server.crt}
+      - TLS_KEY_FILE=${TLS_KEY_FILE:-/certs/server.key}
+    volumes:
+      - ./certs:/certs:ro
+    restart: unless-stopped

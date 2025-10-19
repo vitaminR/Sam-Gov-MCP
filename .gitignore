@@ -1,0 +1,25 @@
+# Go
+/bin/
+/dist/
+/build/
+*.exe
+*.log
+*.out
+
+# IDE
+.vscode/
+.idea/
+
+# Dependencies cache
+/vendor/
+
+# Env files (secrets)
+.env
+.env.*
+
+# Local TLS certs (do not commit real certs)
+certs/
+
+
+#Ignore vscode AI rules
+.github\instructions\codacy.instructions.md

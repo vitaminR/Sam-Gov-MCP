@@ -1,0 +1,11 @@
+{
+  "mcp": {
+    "sam": {
+      "type": "http",
+      "baseUrl": "https://your-host.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:MCP_TOKEN}"
+      }
+    }
+  }
+}

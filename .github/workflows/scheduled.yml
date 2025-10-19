@@ -1,0 +1,17 @@
+name: Scheduled Tasks
+
+on:
+    schedule:
+        - cron: "0 6,18 * * *" # Twice a day at 06:00 and 18:00 UTC
+    workflow_dispatch: {}
+
+jobs:
+    run-scheduled-task:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Print timestamp
+              run: echo "Running scheduled maintenance at $(date -u)"
+            # Placeholder: If you deploy this service, you can curl an endpoint here to warm caches or fetch data.
+            # - name: Ping scheduler endpoint
+            #   run: |
+            #     curl -fsS --retry 3 "${MCP_SCHEDULE_URL}"
