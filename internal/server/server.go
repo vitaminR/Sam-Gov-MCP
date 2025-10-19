@@ -4,8 +4,8 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -94,17 +94,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 }
 
 // Tool describes an MCP tool and its input schema.
-type Tool struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	InputSchema map[string]interface{} `json:"inputSchema"`
-}
-
-// CallRequest is the request body for calling a tool.
-type CallRequest struct {
-	Name string                 `json:"name"`
-	Args map[string]interface{} `json:"arguments"`
-}
+// Note: Tool and CallRequest types are defined in types.go
 
 func (s *Server) handleListTools(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -146,7 +136,7 @@ func (s *Server) handleCall(w http.ResponseWriter, r *http.Request) {
 		}
 		r.Body = http.NoBody
 		newReq := r.WithContext(r.Context())
-		newReq.Body = http.NopCloser(bytes.NewReader(jsonArgs))
+		newReq.Body = io.NopCloser(bytes.NewReader(jsonArgs))
 		handler.ServeHTTP(w, newReq)
 		return
 	}
