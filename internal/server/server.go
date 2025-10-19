@@ -79,12 +79,20 @@ func (s *Server) auth(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if r.Header.Get("Authorization") != "Bearer "+s.cfg.Token {
-			w.WriteHeader(http.StatusUnauthorized)
-			_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		authz := r.Header.Get("Authorization")
+		// Allow main MCP token for all endpoints
+		if authz == "Bearer "+s.cfg.Token {
+			next.ServeHTTP(w, r)
 			return
 		}
-		next.ServeHTTP(w, r)
+		// Allow schedule token only for the scheduled endpoint
+		if r.URL != nil && r.URL.Path == "/mcp/scheduled" && s.cfg.ScheduleToken != "" && authz == "Bearer "+s.cfg.ScheduleToken {
+			next.ServeHTTP(w, r)
+			return
+		}
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		return
 	})
 }
 
